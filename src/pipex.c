@@ -6,65 +6,31 @@
 /*   By: julmuntz <julmuntz@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/11/14 09:45:15 by julmuntz          #+#    #+#             */
-/*   Updated: 2022/11/16 22:22:28 by julmuntz         ###   ########.fr       */
+/*   Updated: 2022/11/17 20:22:28 by julmuntz         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "pipex.h"
 
-// void	child_process(int f1, int *portal, char *cmd1)
-// {
-// 	if (dup2(f1, STDIN_FILENO) < 0)
-// 	{
-// 		close(STDIN_FILENO);
-// 		f1 = STDIN_FILENO;
-// 	}
-// 	dup2(f1, STDIN_FILENO);
-// 	f1 = execve("/usr/bin/", cmd1, NULL);
-// 	dup2(portal[1], STDOUT_FILENO);
-// 	portal[1] = execve("/usr/bin/", cmd1, NULL);
-// }
-
-// void	pipex(int f1, int f2, char **arv, char **env)
-// {
-// 	int		portal[2];
-// 	pid_t	parent;
-
-// 	pipe(portal);
-// 	parent = fork();
-// 	if (parent < 0)
-// 		return (perror("Fork: "));
-// 	if (!parent)
-// 		child_process(f1, portal, arv[2]);
-// 	else
-// 		parent_process(f2, portal, arv[3]);
-// }
-
-int	find_cmd(char **paths, char *cmd1, char *cmd2)
+static int	check_path(char **paths, char *cmd)
 {
 	int		i;
-	int		cmd1_found;
-	int		cmd2_found;
+	char	*file;
+	char	*filepath;
 
 	i = 0;
-	cmd1_found = FALSE;
-	cmd2_found = FALSE;
 	while (paths[i])
 	{
-		cmd1 = ft_strjoin(paths[i], cmd1);
-		cmd2 = ft_strjoin(paths[i], cmd2);
-		if (cmd1_found == TRUE && cmd2_found == TRUE)
+		file = ft_strjoin("/", cmd);
+		filepath = ft_strjoin(paths[i], file);
+		if (!access(filepath, F_OK))
 			return (TRUE);
-		if (cmd1_found == FALSE && !access(cmd1, F_OK))
-			cmd1_found = TRUE;
-		if (cmd2_found == FALSE && !access(cmd2, F_OK))
-			cmd2_found = TRUE;
 		i++;
 	}
 	return (FALSE);
 }
 
-char	*find_path(char **env)
+static char	*find_paths(char **env)
 {
 	int	i;
 
@@ -72,24 +38,87 @@ char	*find_path(char **env)
 	while (env[i])
 	{
 		if (ft_strnstr(env[i], "PATH", 4))
-			return (env[i]);
+			return (env[i] + 5);
 		i++;
 	}
 	return (NULL);
 }
 
+static int	valid_input(int arc, char *cmd1, char *cmd2, char **paths)
+{
+	if (arc != 5)
+		return (ft_printf("Error\nWorks with 4 arguments only.\n"), FALSE);
+	if (check_path(paths, cmd1) == FALSE && check_path(paths, cmd2) == TRUE)
+		return (ft_printf("Error\ncannot access '%s': No such file or directory\n", cmd1), FALSE);
+	else if (check_path(paths, cmd1) == TRUE && check_path(paths, cmd2) == FALSE)
+		return (ft_printf("Error\ncannot access '%s': No such file or directory\n", cmd2), FALSE);
+	else if (check_path(paths, cmd1) == FALSE && check_path(paths, cmd2) == FALSE)
+		return (ft_printf("Error\ncannot access '%s' and '%s': No such file or directory\n", cmd1, cmd2), FALSE);
+	else
+		return (TRUE);
+}
+
+static char	*get_path(char **paths, char *cmd)
+{
+	int		i;
+	char	*file;
+	char	*filepath;
+
+	i = 0;
+	while (paths[i])
+	{
+		file = ft_strjoin("/", cmd);
+		filepath = ft_strjoin(paths[i], file);
+		if (!access(filepath, F_OK))
+			return (filepath);
+		i++;
+	}
+	return (NULL);
+}
+
+void	child_process(t_data *data)
+{
+	char	**cmd_with_flags;
+
+	cmd_with_flags = ft_split(data->cmd1, ' ');
+	if (dup2(data->file1, STDIN_FILENO) < 0)
+	{
+		close(STDIN_FILENO);
+		data->file1 = STDIN_FILENO;
+	}
+	dup2(data->file1, STDIN_FILENO);
+	dup2(data->portal[1], STDOUT_FILENO);
+	close(data->portal[0]);
+	close(data->file1);
+	execve(get_path(data->paths, data->cmd1), cmd_with_flags, data->env);
+}
+
+void	pipex(t_data *data)
+{
+	pid_t	parent;
+
+	pipe(data->portal);
+	parent = fork();
+	if (parent < 0)
+		return (perror("Fork: "));
+	if (!parent)
+		child_process(data);
+	else
+		return ;
+		// parent_process(data);
+}
+
 int	main(int arc, char **arv, char **env)
 {
-	(void)	arc;
-	char	**paths;
+	t_data	data;
 
-	// if (arc != 5)
-	// 	return (ft_printf("Error\n"), 0);
-	paths = ft_split(find_path(env), ':');
-	*paths += 5;
-	if (find_cmd(paths, arv[2], arv[3]) == TRUE)
-		return (ft_printf("Found\n"), 0);
-	else
-		return (ft_printf("Error\n"), 0);
-	return (0);
+	data.env = env;
+	data.paths = ft_split(find_paths(env), ':');
+	data.file1 = open(arv[1], O_RDONLY);
+	data.file2 = open(arv[4], O_RDWR | O_CREAT | O_TRUNC, 0644);
+	data.fullcmd1 = ft_split(arv[2], ' ');
+	data.fullcmd2 = ft_split(arv[3], ' ');
+	if (valid_input(arc, data.fullcmd1[0], data.fullcmd2[0], data.paths) == FALSE)
+		return (0);
+	pipex(&data);
 }

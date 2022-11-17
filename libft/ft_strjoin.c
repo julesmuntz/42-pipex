@@ -27,5 +27,5 @@ char	*ft_strjoin(char *s1, char *s2)
 	ft_memcpy(res, s1, i[1]);
 	ft_memcpy(res + i[1], s2, i[2]);
 	res[i[1] + i[2]] = 0;
-	return (free(s1), res);
+	return (res);
 }

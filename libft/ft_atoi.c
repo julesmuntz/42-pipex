@@ -34,7 +34,7 @@ int	ft_atoi(char *str)
 		result = result * 10 + str[i[0]] - 48;
 		if ((unsigned long)result > INT_MAX && i[1] == 1)
 			return (-1);
-		if ((unsigned long)result > INT_MAX && i[1] == -1)
+		if ((unsigned long)result > 2147483648 && i[1] == -1)
 			return (0);
 		i[0]++;
 	}
