@@ -6,29 +6,11 @@
 /*   By: julmuntz <julmuntz@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/11/14 09:45:15 by julmuntz          #+#    #+#             */
-/*   Updated: 2022/11/17 20:22:28 by julmuntz         ###   ########.fr       */
+/*   Updated: 2022/11/18 02:16:55 by julmuntz         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "pipex.h"
-
-static int	check_path(char **paths, char *cmd)
-{
-	int		i;
-	char	*file;
-	char	*filepath;
-
-	i = 0;
-	while (paths[i])
-	{
-		file = ft_strjoin("/", cmd);
-		filepath = ft_strjoin(paths[i], file);
-		if (!access(filepath, F_OK))
-			return (TRUE);
-		i++;
-	}
-	return (FALSE);
-}
 
 static char	*find_paths(char **env)
 {
@@ -41,84 +23,95 @@ static char	*find_paths(char **env)
 			return (env[i] + 5);
 		i++;
 	}
-	return (NULL);
+	return (0);
 }
 
-static int	valid_input(int arc, char *cmd1, char *cmd2, char **paths)
-{
-	if (arc != 5)
-		return (ft_printf("Error\nWorks with 4 arguments only.\n"), FALSE);
-	if (check_path(paths, cmd1) == FALSE && check_path(paths, cmd2) == TRUE)
-		return (ft_printf("Error\ncannot access '%s': No such file or directory\n", cmd1), FALSE);
-	else if (check_path(paths, cmd1) == TRUE && check_path(paths, cmd2) == FALSE)
-		return (ft_printf("Error\ncannot access '%s': No such file or directory\n", cmd2), FALSE);
-	else if (check_path(paths, cmd1) == FALSE && check_path(paths, cmd2) == FALSE)
-		return (ft_printf("Error\ncannot access '%s' and '%s': No such file or directory\n", cmd1, cmd2), FALSE);
-	else
-		return (TRUE);
-}
-
-static char	*get_path(char **paths, char *cmd)
+static char	*find_cmd(char *cmd, t_data *data)
 {
 	int		i;
 	char	*file;
 	char	*filepath;
 
 	i = 0;
-	while (paths[i])
+	while (data->paths[i])
 	{
 		file = ft_strjoin("/", cmd);
-		filepath = ft_strjoin(paths[i], file);
+		filepath = ft_strjoin(data->paths[i], file);
+		free(file);
 		if (!access(filepath, F_OK))
 			return (filepath);
+		free(filepath);
 		i++;
 	}
-	return (NULL);
+	return (0);
 }
 
-void	child_process(t_data *data)
+static int	valid_input(int arc, t_data *data)
 {
-	char	**cmd_with_flags;
-
-	cmd_with_flags = ft_split(data->cmd1, ' ');
-	if (dup2(data->file1, STDIN_FILENO) < 0)
-	{
-		close(STDIN_FILENO);
-		data->file1 = STDIN_FILENO;
-	}
-	dup2(data->file1, STDIN_FILENO);
-	dup2(data->portal[1], STDOUT_FILENO);
-	close(data->portal[0]);
-	close(data->file1);
-	execve(get_path(data->paths, data->cmd1), cmd_with_flags, data->env);
-}
-
-void	pipex(t_data *data)
-{
-	pid_t	parent;
-
-	pipe(data->portal);
-	parent = fork();
-	if (parent < 0)
-		return (perror("Fork: "));
-	if (!parent)
-		child_process(data);
+	if (arc != 5)
+		return (ft_printf("Error\nWorks with 4 arguments.\n"), FALSE);
+	if (!find_cmd(*data->cmd1, data)
+		&& find_cmd(*data->cmd2, data))
+		return (ft_printf("Error\n\
+Cannot access '%s': no such file or directory.\n", *data->cmd1), FALSE);
+	else if (find_cmd(*data->cmd1, data)
+		&& !find_cmd(*data->cmd2, data))
+		return (ft_printf("Error\n\
+Cannot access '%s': no such file or directory.\n", *data->cmd2), FALSE);
+	else if (!find_cmd(*data->cmd1, data)
+		&& !find_cmd(*data->cmd2, data))
+		return (ft_printf("Error\n\
+Cannot access '%s' and '%s': no such files or directories.\n",
+				*data->cmd1, *data->cmd2), FALSE);
 	else
-		return ;
-		// parent_process(data);
+		return (TRUE);
+}
+
+void	process(t_data *data)
+{
+	if (data->current_process == CHILD)
+	{
+		if (data->file1 < 0)
+			return ;
+		dup2(data->file1, STDIN_FILENO);
+		dup2(data->portal[1], STDOUT_FILENO);
+		close(data->portal[0]);
+		execve(find_cmd(*data->cmd1, data), data->cmd1, data->env);
+	}
+	else if (data->current_process == PARENT)
+	{
+		if (data->file2 < 0)
+			return ;
+		dup2(data->file2, STDOUT_FILENO);
+		dup2(data->portal[0], STDIN_FILENO);
+		close(data->portal[1]);
+		execve(find_cmd(*data->cmd2, data), data->cmd2, data->env);
+	}
 }
 
 int	main(int arc, char **arv, char **env)
 {
 	t_data	data;
+	pid_t	process_id;
 
 	data.env = env;
 	data.paths = ft_split(find_paths(env), ':');
+	data.cmd1 = ft_split(arv[2], ' ');
+	data.cmd2 = ft_split(arv[3], ' ');
+	if (valid_input(arc, &data) == FALSE)
+		return (0);
 	data.file1 = open(arv[1], O_RDONLY);
 	data.file2 = open(arv[4], O_RDWR | O_CREAT | O_TRUNC, 0644);
-	data.fullcmd1 = ft_split(arv[2], ' ');
-	data.fullcmd2 = ft_split(arv[3], ' ');
-	if (valid_input(arc, data.fullcmd1[0], data.fullcmd2[0], data.paths) == FALSE)
+	pipe(data.portal);
+	process_id = fork();
+	if (process_id < 0)
 		return (0);
-	pipex(&data);
+	if (!process_id)
+	{
+		data.current_process = CHILD;
+		process(&data);
+	}
+	data.current_process = PARENT;
+	waitpid(process_id, NULL, 0);
+	process(&data);
 }
