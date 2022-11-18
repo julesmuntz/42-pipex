@@ -6,7 +6,7 @@
 /*   By: julmuntz <julmuntz@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/11/14 09:45:15 by julmuntz          #+#    #+#             */
-/*   Updated: 2022/11/18 19:09:35 by julmuntz         ###   ########.fr       */
+/*   Updated: 2022/11/18 23:03:15 by julmuntz         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -54,13 +54,11 @@ static char	*find_cmd(char *cmd, t_data *data)
 	return (0);
 }
 
-static int	valid_input(int arc, char **arv, t_data *data)
+static int	valid_input(char **arv, t_data *data)
 {
 	char	*cmdpath1;
 	char	*cmdpath2;
 
-	if (arc != 5)
-		return (ft_printf("Error\nWorks with 4 arguments.\n"), FALSE);
 	data->cmd1 = ft_split(arv[2], ' ');
 	cmdpath1 = find_cmd(*data->cmd1, data);
 	data->cmd2 = ft_split(arv[3], ' ');
@@ -82,28 +80,21 @@ Cannot access '%s' and '%s': no such files or directories.\n",
 		return (TRUE);
 }
 
-static void	process(char **arv, t_data *data)
+static void	process(t_data *data)
 {
 	if (data->current_process == CHILD)
 	{
-		if (data->file1 < 0)
-		{
-			ft_printf("Error\n\
-Cannot access '%s': no such file or directory.\n", arv[1]);
-			exit(EXIT_FAILURE);
-			return ;
-		}
 		dup2(data->file1, STDIN_FILENO);
 		dup2(data->portal[1], STDOUT_FILENO);
+		close(data->portal[1]);
 		close(data->portal[0]);
 		execve(find_cmd(*data->cmd1, data), data->cmd1, data->env);
 	}
 	else if (data->current_process == PARENT)
 	{
-		if (data->file2 < 0)
-			return ;
 		dup2(data->file2, STDOUT_FILENO);
 		dup2(data->portal[0], STDIN_FILENO);
+		close(data->portal[0]);
 		close(data->portal[1]);
 		execve(find_cmd(*data->cmd2, data), data->cmd2, data->env);
 	}
@@ -114,21 +105,28 @@ int	main(int arc, char **arv, char **env)
 	t_data	data;
 	pid_t	process_id;
 
-	data.env = env;
-	if (valid_input(arc, arv, &data) == FALSE)
-		return (exit(EXIT_FAILURE), 0);
+	if (arc != 5)
+		return (ft_printf("Error\nWorks with 4 arguments.\n"), FALSE);
 	data.file1 = open(arv[1], O_RDONLY);
+	if (data.file1 == -1)
+		return (ft_printf("Error\n\
+Cannot open '%s': not accessible.\n", arv[1]), exit(EXIT_FAILURE), 0);
 	data.file2 = open(arv[4], O_RDWR | O_CREAT | O_TRUNC, 0644);
+	if (data.file2 == -1)
+		return (ft_printf("Error\n\
+Cannot open '%s': not accessible.\n", arv[4]), exit(EXIT_FAILURE), 0);
+	data.env = env;
+	if (valid_input(arv, &data) == FALSE)
+		return (exit(EXIT_FAILURE), 0);
 	pipe(data.portal);
 	process_id = fork();
 	if (process_id < 0)
 		return (0);
-	if (!process_id)
+	if (process_id)
 	{
-		data.current_process = CHILD;
-		process(arv, &data);
+		data.current_process = PARENT;
+		process(&data);
 	}
-	data.current_process = PARENT;
-	waitpid(process_id, NULL, 0);
-	process(arv, &data);
+	data.current_process = CHILD;
+	process(&data);
 }
