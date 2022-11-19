@@ -6,7 +6,7 @@
 /*   By: julmuntz <julmuntz@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/11/14 09:45:15 by julmuntz          #+#    #+#             */
-/*   Updated: 2022/11/18 23:03:15 by julmuntz         ###   ########.fr       */
+/*   Updated: 2022/11/19 17:31:11 by julmuntz         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -36,21 +36,16 @@ static char	*find_cmd(char *cmd, t_data *data)
 	data->paths = ft_split(find_paths(data->env), ':');
 	while (data->paths[i])
 	{
-		file = ft_strjoin("/", cmd);
-		filepath = ft_strjoin(data->paths[i], file);
-		free(file);
-		if (!access(filepath, F_OK))
-			return (free(data->paths), filepath);
+		filepath = ft_strjoin(data->paths[i], "/");
+		file = ft_strjoin(filepath, cmd);
 		free(filepath);
+		if (ft_strchr(cmd, '/'))
+			file = cmd;
+		if (!access(file, F_OK))
+			return (file);
+		free(file);
 		i++;
 	}
-	i = 0;
-	while (data->paths[i])
-	{
-		free(data->paths[i]);
-		i++;
-	}
-	free(data->paths);
 	return (0);
 }
 
@@ -65,17 +60,14 @@ static int	valid_input(char **arv, t_data *data)
 	cmdpath2 = find_cmd(*data->cmd2, data);
 	if (!cmdpath1 && cmdpath2)
 		return (ft_printf("Error\n\
-Cannot access '%s': no such file or directory.\n", *data->cmd1),
-			free(data->cmd1), FALSE);
+Cannot access '%s': no such file or directory.\n", *data->cmd1), FALSE);
 	else if (cmdpath1 && !cmdpath2)
 		return (ft_printf("Error\n\
-Cannot access '%s': no such file or directory.\n", *data->cmd2),
-			free(data->cmd2), FALSE);
+Cannot access '%s': no such file or directory.\n", *data->cmd2), FALSE);
 	else if (!cmdpath1 && !cmdpath2)
 		return (ft_printf("Error\n\
 Cannot access '%s' and '%s': no such files or directories.\n",
-				*data->cmd1, *data->cmd2), free(data->cmd1),
-			free(data->cmd2), FALSE);
+				*data->cmd1, *data->cmd2), FALSE);
 	else
 		return (TRUE);
 }
