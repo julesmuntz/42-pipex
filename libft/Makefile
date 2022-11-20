@@ -14,6 +14,8 @@ SRC			=	ft_atoi.c					\
     			ft_bzero.c					\
     			ft_calloc.c					\
     			ft_convert_base.c			\
+    			ft_free_lines.c				\
+				get_next_line.c				\
     			ft_hexlen.c					\
     			ft_isalnum.c				\
     			ft_isalpha.c				\
@@ -69,7 +71,6 @@ SRC			=	ft_atoi.c					\
     			ft_swap.c					\
     			ft_tolower.c				\
     			ft_toupper.c				\
-				get_next_line.c				\
 				$(addprefix ft_printf/,		\
 				convert_char.c				\
 				convert_decimal.c			\

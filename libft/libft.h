@@ -37,6 +37,7 @@ int				ft_atoi(char *str);
 void			ft_bzero(void *s, size_t n);
 void			*ft_calloc(size_t nmemb, size_t size);
 int				ft_convert_base(int n, int base);
+void			ft_free_lines(char **lines);
 char			*get_next_line(int fd);
 int				ft_hexlen(int n);
 int				ft_hexlen_u(unsigned int n);
