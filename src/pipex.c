@@ -6,7 +6,7 @@
 /*   By: julmuntz <julmuntz@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/11/14 09:45:15 by julmuntz          #+#    #+#             */
-/*   Updated: 2022/11/20 16:04:51 by julmuntz         ###   ########.fr       */
+/*   Updated: 2022/11/21 16:31:32 by julmuntz         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -66,7 +66,7 @@ static int	valid_input(char *arg, t_data *data)
 	if (execve(find_cmd(data->cmd[0], data), data->cmd, data->env) == -1)
 	{
 		ft_printf("Error\n\
-Cannot access '%s': no such file or directory.\n", *data->cmd);
+Cannot access '%s': no such file or directory.\n", data->cmd[0]);
 		return (FALSE);
 	}
 	return (TRUE);
