@@ -6,7 +6,7 @@
 /*   By: julmuntz <julmuntz@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/11/14 09:45:15 by julmuntz          #+#    #+#             */
-/*   Updated: 2022/11/27 11:36:45 by julmuntz         ###   ########.fr       */
+/*   Updated: 2022/11/27 21:28:26 by julmuntz         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -61,39 +61,39 @@ static int	valid_input(char *arg, t_data *data)
 	if (!find_cmd(*data->cmd, data))
 	{
 		ft_free_lines(data->cmd);
+		ft_printf("Error\n\
+Cannot access '%s': no such file or directory.\n", arg);
 		return (FALSE);
 	}
-	if (execve(find_cmd(*data->cmd, data), data->cmd, data->env) == -1)
+	else if (execve(find_cmd(*data->cmd, data), data->cmd, data->env) == -1)
 	{
-		ft_printf("Error\n\
-Cannot access '%s': no such file or directory.\n", *data->cmd);
 		return (FALSE);
 	}
 	return (TRUE);
 }
 
-static void	process(char *arg, t_data *data)
+static int	process(char *arg, t_data *data)
 {
 	pid_t	process_id;
 
 	if (pipe(data->fd) < 0)
-		return ;
+		return (0);
 	process_id = fork();
 	if (process_id < 0)
-		return ;
+		return (0);
 	if (process_id)
-	{
-		dup2(data->fd[0], STDIN_FILENO);
-		close(data->fd[1]);
-		waitpid(process_id, NULL, 0);
-	}
-	else
 	{
 		dup2(data->fd[1], STDOUT_FILENO);
 		close(data->fd[0]);
-		if (valid_input(arg, data) == TRUE)
+		if (valid_input(arg, data) == FALSE)
+			return (exit(EXIT_FAILURE), 0);
+		else
 			execve(find_cmd(*data->cmd, data), data->cmd, data->env);
 	}
+	dup2(data->fd[0], STDIN_FILENO);
+	close(data->fd[1]);
+	waitpid(process_id, NULL, 0);
+	return (0);
 }
 
 int	main(int arc, char **arv, char **env)
@@ -121,6 +121,8 @@ Cannot open '%s': not accessible.\n", arv[arc - 1]), exit(EXIT_FAILURE), 0);
 		i++;
 	}
 	dup2(data.file2, STDOUT_FILENO);
-	if (valid_input(data.args[i], &data) == TRUE)
+	if (valid_input(data.args[i], &data) == FALSE)
+		return (exit(EXIT_FAILURE), 0);
+	else
 		execve(find_cmd(*data.cmd, &data), data.cmd, data.env);
 }
