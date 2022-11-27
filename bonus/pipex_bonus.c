@@ -1,16 +1,16 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   pipex.c                                            :+:      :+:    :+:   */
+/*   pipex_bonus.c                                      :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: julmuntz <julmuntz@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/11/14 09:45:15 by julmuntz          #+#    #+#             */
-/*   Updated: 2022/11/27 11:58:40 by julmuntz         ###   ########.fr       */
+/*   Updated: 2022/11/27 11:36:45 by julmuntz         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "pipex.h"
+#include "pipex_bonus.h"
 
 static char	*find_paths(char **env)
 {
@@ -72,54 +72,55 @@ Cannot access '%s': no such file or directory.\n", *data->cmd);
 	return (TRUE);
 }
 
-static void	process(t_data *data)
+static void	process(char *arg, t_data *data)
 {
-	if (data->current_process == CHILD)
+	pid_t	process_id;
+
+	if (pipe(data->fd) < 0)
+		return ;
+	process_id = fork();
+	if (process_id < 0)
+		return ;
+	if (process_id)
 	{
-		dup2(data->file1, STDIN_FILENO);
-		dup2(data->fd[1], STDOUT_FILENO);
-		close(data->fd[1]);
-		close(data->fd[0]);
-		if (valid_input(data->args[2], data) == TRUE)
-			execve(find_cmd(*data->cmd, data), data->cmd, data->env);
-	}
-	else if (data->current_process == PARENT)
-	{
-		dup2(data->file2, STDOUT_FILENO);
 		dup2(data->fd[0], STDIN_FILENO);
-		close(data->fd[0]);
 		close(data->fd[1]);
-		if (valid_input(data->args[3], data) == TRUE)
+		waitpid(process_id, NULL, 0);
+	}
+	else
+	{
+		dup2(data->fd[1], STDOUT_FILENO);
+		close(data->fd[0]);
+		if (valid_input(arg, data) == TRUE)
 			execve(find_cmd(*data->cmd, data), data->cmd, data->env);
 	}
 }
 
 int	main(int arc, char **arv, char **env)
 {
+	int		i;
 	t_data	data;
-	pid_t	process_id;
 
-	if (arc != 5)
-		return (ft_printf("Error\nWorks with 4 arguments.\n"), FALSE);
+	if (arc < 5)
+		return (ft_printf("Error\nWorks with at least 4 arguments.\n"), FALSE);
 	data.file1 = open(arv[1], O_RDONLY);
 	if (data.file1 == -1)
 		return (ft_printf("Error\n\
 Cannot open '%s': not accessible.\n", arv[1]), exit(EXIT_FAILURE), 0);
-	data.file2 = open(arv[4], O_RDWR | O_CREAT | O_TRUNC, 0644);
+	data.file2 = open(arv[arc - 1], O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (data.file2 == -1)
 		return (ft_printf("Error\n\
-Cannot open '%s': not accessible.\n", arv[4]), exit(EXIT_FAILURE), 0);
+Cannot open '%s': not accessible.\n", arv[arc - 1]), exit(EXIT_FAILURE), 0);
 	data.env = env;
 	data.args = arv;
-	pipe(data.fd);
-	process_id = fork();
-	if (process_id < 0)
-		return (0);
-	if (process_id)
+	i = 2;
+	dup2(data.file1, STDIN_FILENO);
+	while (i < (arc - 2))
 	{
-		data.current_process = PARENT;
-		process(&data);
+		process(data.args[i], &data);
+		i++;
 	}
-	data.current_process = CHILD;
-	process(&data);
+	dup2(data.file2, STDOUT_FILENO);
+	if (valid_input(data.args[i], &data) == TRUE)
+		execve(find_cmd(*data.cmd, &data), data.cmd, data.env);
 }
